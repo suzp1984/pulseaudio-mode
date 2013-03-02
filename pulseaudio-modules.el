@@ -14,6 +14,7 @@
 
 (require 'tabulated-list)
 (require 'cl)
+(require 'pulseaudio-modules-parse)
 
 (defgroup pulseaudio-modules nil
   "PulseAudio Modules"

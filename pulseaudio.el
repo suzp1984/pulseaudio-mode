@@ -34,5 +34,15 @@
   "Major mode for PulseAudio Management."
   )
 
+(defun pulseaudio ()
+  "Inter pulseaudio management mode."
+  (interactive)
+  )
+
+(defun pulseaudio-quit-windows (&optional kill-buffer)
+  "Kill the buffer and quit the windows"
+  (interactive "P")
+  (quit-window kill-buffer (selected-window)))
+
 (provide 'pulseaudio)
 ;;; pulseaudio.el ends here
