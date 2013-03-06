@@ -51,7 +51,23 @@
 
 (defun pa-ewoc-pp (object)
   "Pretty printer of ewoc."
-  )
+  (let ((beg (point))
+        (num (plist-get object :num))
+        (state (plist-get object :state))
+        (name (plist-get object :name))
+        (description (plist-get object :description))
+        (driver (plist-get object :driver)))
+    (insert (concat "Sink #" num))
+    (insert "\n")
+    (insert "\t")
+    (insert (concat "State: " state))
+    (insert "\n\t")
+    (insert (concat "Description: " description))
+    (insert "\n\t")
+    (insert (concat "Name: " name))
+    (put-text-property beg (point) 'read-only t)
+    (put-text-property beg (point) 'front-sticky t)
+    (put-text-property beg (point) 'rear-nonsticky t)))
 
 (defun pulseaudio-sinks-suspend (&optional node)
   )
@@ -121,9 +137,66 @@
                            (fsm-get-state-data pa-sinks-parser) nil)
                (fsm-send-sync pa-sinks-parser event)))
             ((string-match "^[ \t]*Volume:[ \t]*\\(.*\\)" line)
-             )
+             (let ((event (cons :value (match-string 1 line))))
+               (fsm-update pa-sinks-parser :sinks-volume
+                           (fsm-get-state-data pa-sinks-parser) nil)
+               (fsm-send-sync pa-sinks-parser event)))
+            ((string-match "^[ \t]*Base Volume:[ \t]*\\(.*\\)" line)
+             (let ((event (cons :value (match-string 1 line))))
+               (fsm-update pa-sinks-parser :sinks-base-volume
+                           (fsm-get-state-data pa-sinks-parser) nil)
+               (fsm-send-sync pa-sinks-parser event)))
+            ((string-match "^[ \t]*Monitor Source:[ \t]*\\(.*\\)" line)
+             (let ((event (cons :value (match-string 1 line))))
+               (fsm-update pa-sinks-parser :sinks-monitor-source
+                           (fsm-get-state-data pa-sinks-parser) nil)
+               (fsm-send-sync pa-sinks-parser event)))
+            ((string-match "^[ \t]*Latency:[ \t]*\\(.*\\)" line)
+             (let ((event (cons :value (match-string 1 line))))
+               (fsm-update pa-sinks-parser :sinks-latency
+                           (fsm-get-state-data pa-sinks-parser) nil)
+               (fsm-send-sync pa-sinks-parser event)))
+            ((string-match "^[ \t]*Flags:[ \t]*\\(.*\\)" line)
+             (let ((event (cons :value (match-string 1 line))))
+               (fsm-update pa-sinks-parser :sinks-flags
+                           (fsm-get-state-data pa-sinks-parser) nil)
+               (fsm-send-sync pa-sinks-parser event)))
+            ((string-match "^[ \t]*Properties:[ \t]*\\(.*\\)" line)
+             (let ((event (cons :value (match-string 1 line))))
+               (fsm-update pa-sinks-parser :sinks-properties
+                           (fsm-get-state-data pa-sinks-parser) nil)
+               (fsm-send-sync pa-sinks-parser event)))
+            ((string-match "^[ \t]*Ports:[ \t]*\\(.*\\)" line)
+             (let ((event (cons :value (match-string 1 line))))
+               (fsm-update pa-sinks-parser :sinks-ports
+                           (fsm-get-state-data pa-sinks-parser) nil)
+               (fsm-send-sync pa-sinks-parser event)))
+            ((string-match "^[ \t]*Active Port:[ \t]*\\(.*\\)" line)
+             (let ((event (cons :value (match-string 1 line))))
+               (fsm-update pa-sinks-parser :sinks-active-port
+                           (fsm-get-state-data pa-sinks-parser) nil)
+               (fsm-send-sync pa-sinks-parser event)))
+            ((string-match "^[ \t]*Formats:[ \t]*\\(.*\\)" line)
+             (let ((event (cons :value (match-string 1 line))))
+               (fsm-update pa-sinks-parser :sinks-formats
+                           (fsm-get-state-data pa-sinks-parser) nil)
+               (fsm-send-sync pa-sinks-parser event)))
+            (t 
+             (let ((event (cons :value (trim-string line))))
+               (fsm-send-sync pa-sinks-parser event)))
             ))
-    ))
+    (fsm-update pa-sinks-parser :sinks-start
+                (fsm-get-state-data pa-sinks-parser) nil)
+    )
+  (dolist (sink pa-sinks-list)
+    (ewoc-enter-last pa-sinks-ewoc sink)))
+
+(defmacro def-sinks-cond (regexp-str state line)
+  (list `(string-match ,regexp-str ,line)
+        `(let ((event (cons :value (match-string 1 line))))
+           (fsm-update pa-sinks-parser ,state
+                       (fsm-get-state-data pa-sinks-parser) nil)
+           (fsm-send-sync pa-sinks-parser event))))
 
 (defun list-pulseaudio-sinks ()
   "Display all pulseaudio sinks"
