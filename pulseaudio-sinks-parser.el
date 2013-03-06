@@ -50,7 +50,30 @@
                       :formats nil
                       ))))
 
-(define-enter-state pa-sinks-parser :null-state)
+(define-enter-state pa-sinks-parser :null-state
+  (fsm state-data)
+  (setq state-data (plist-put state-data :num nil))
+  (setq state-data (plist-put state-data :state nil))
+  (setq state-data (plist-put state-data :name nil))
+  (setq state-data (plist-put state-data :description nil))
+  (setq state-data (plist-put state-data :sample-specification nil))
+  (setq state-data (plist-put state-data :channel-map nil))
+  (setq state-data (plist-put state-data :owner-module nil))
+  (setq state-data (plist-put state-data :mute nil))
+  (setq state-data (plist-put state-data :volume nil))
+  (setq state-data (plist-put state-data :base-volume nil))
+  (setq state-data (plist-put state-data :monitor-source nil))
+  (setq state-data (plist-put state-data :latency nil))
+  (setq state-data (plist-put state-data :flags nil))
+  (setq state-data (plist-put state-data :properties nil))
+  (setq state-data (plist-put state-data :ports nil))
+  (setq state-data (plist-put state-data :active-port nil))
+  (setq state-data (plist-put state-data :formats nil))
+  (setq pa-sinks-list nil)
+  (list state-data nil))
+(define-state pa-sinks-parser :null-state
+  (fsm state-data event callback)
+  (list :null-state state-data))
 
 (provide 'pulseaudio-sinks-parser)
 ;;; pulseaudio-sinks-parser.el ends here
