@@ -33,6 +33,11 @@
   :version "0.1"
   :group 'pulseaudio)
 
+(defcustom pulseaudio-sink-volume-step 5
+  "define step when increase or decrease the volume of pulseaudio"
+  :type 'integer
+  :group 'pulseaudio-sinks)
+
 (defvar pulseaudio-sinks-buffer-name "*Pulseaudio sinks*"
   "Pulseaudio sinks buffer name.")
 
@@ -46,6 +51,8 @@
     (define-key map (kbd "f") 'pulseaudio-sinks-refresh)
     (define-key map (kbd "-") 'pulseaudio-sinks-volume-less)
     (define-key map (kbd "+") 'pulseaudio-sinks-volume-more)
+    (define-key map (kbd "n") 'pulseaudio-sinks-next)
+    (define-key map (kbd "p") 'pulseaudio-sinks-pre)
     map)
   "pulseaudio-sinks-mode keymap")
 
@@ -97,6 +104,7 @@
          (ports (plist-get object :ports))
          (active-port (plist-get object :active-port))
          (formats (plist-get object :formats)))
+    (plist-put object :position (point))
     (insert (concat "Sink #" num))
     (insert "\n\t")
     (insert (concat (propertize "State: " 'face 'pa-sinks-title-face) (propertize state 'face 'pa-sinks-face-1)))
@@ -119,12 +127,20 @@
     (dolist (item (reverse volume))
       (insert (propertize item 'face 'pa-sinks-face-2))
       (insert "\n\t\t\t"))
+    (let ((value (car (reverse volume))))
+      (when (string-match "\\([0-9]+\\)%" value)
+        (setq value (match-string 1 value))
+        (insert (concat "[" value "]: " 
+                        (propertize (make-string (string-to-int value) ?#)
+                                    'face 'pa-sinks-face-2)))))
     (insert "\n\t")
     (let ((value (car (cdr-safe base-volume))))
       (when (string-match "\\([0-9]+\\)%" value)
         (setq value (match-string 1 value))
-        (message "volume: %s" (car-safe value))))
-    (insert (concat "Base Volume: " "####"))
+        (insert (concat "Base Volume(" value "%): " 
+                        (propertize (make-string (string-to-int value) ?#) 'face 'pa-sinks-face-1)))
+        (message "volume: %s" value)))
+    ;;(insert (concat "Base Volume: " "####"))
     (insert "\n\t")
     (insert (concat "Monitor Source: " (propertize monitor-source 'face 'pa-sinks-face-1)))
     (insert "\n\t")
@@ -132,15 +148,21 @@
     (insert "\n\t")
     (insert (concat "Flags: " (propertize flags 'face 'pa-sinks-face-1)))
     (insert "\n\t")
-    (insert (concat "Properties: " "####"))
+    (insert (concat "Properties: "))
+    (dolist (item (reverse properties))
+      (insert (propertize item 'face 'pa-sinks-face-2))
+      (insert "\n\t\t\t"))
     (insert "\n\t")
-    (insert (concat "Ports: " "####"))
+    (insert (concat "Ports: "))
+    (dolist (item (reverse ports))
+      (insert (propertize item 'face 'pa-sinks-face-1))
+      (insert "\n\t\t\t"))
     (insert "\n\t")
     (insert (concat "Active Port: " (propertize active-port 'face 'pa-sinks-face-2)))
     (insert "\n\t")
     (insert (concat "Formats: " (propertize formats 'face 'pa-sinks-face-1)))
     (insert "\n")
-    (put-text-property beg (point) 'read-only t)
+  ;;  (put-text-property beg (point) 'read-only t)
     (put-text-property beg (point) 'front-sticky t)
     (put-text-property beg (point) 'rear-nonsticky t)))
 
@@ -163,19 +185,82 @@
 
 (defun pulseaudio-sinks-refresh ()
   "Refresh the Pusleaudio Sinks buffer."
+  (interactive)
   (let ((line (line-number-at-pos)))
     (pa-sinks-refresh)
     (goto-line line)))
 
+(defun pulseaudio-sinks-next ()
+  "move cursor to next sink"
+  (interactive)
+  (let* ((node (ewoc-locate pa-sinks-ewoc))
+         position
+         next-node)
+    (when node 
+      (setq next-node (ewoc-next pa-sinks-ewoc node))
+      (unless next-node
+        (while node
+          (setq next-node node)
+          (setq node (ewoc-prev pa-sinks-ewoc node))))
+      (setq position (plist-get (ewoc-data next-node) :position))
+      (goto-char position)))
+  )
+
+(defun pulseaudio-sinks-prev ()
+  "move cursor to pre sink"
+  (interactive)
+  (let* ((node (ewoc-locate pa-sinks-ewoc))
+         position
+         pre-node)
+    (when node
+      (setq pre-node (ewoc-prev pa-sinks-ewoc node))
+      (unless pre-node
+        (while node
+          (setq pre-node node)
+          (setq node (ewoc-next pa-sinks-ewoc node)))
+        )
+      (setq position (plist-get (ewoc-data pre-node) :position))
+      (goto-char position))))
+
 (defun pulseaudio-sinks-volume-less (node)
   "Less the volume of a sink."
   (interactive (list (ewoc-locate pa-sinks-ewoc)))
+  (let* ((data (ewoc-data node))
+         (volume (car (reverse (plist-get data :volume))))
+         (num (plist-get data :num))
+         (line (line-number-at-pos))
+         value)
+    (when (string-match "\\([0-9]+\\)%" volume)
+      (setq value (string-to-int (match-string 1 volume)))
+      (setq value (- value pulseaudio-sink-volume-step))
+      (shell-command (concat "pactl set-sink-volume " num " " 
+                             (int-to-string value) "%"))
+      (message "%s" (concat "pactl set-sink-volume " num " " 
+                             (int-to-string value) "%"))
+      (goto-line line)
+      )
+    )
   (pa-sinks-refresh))
 
 (defun pulseaudio-sinks-volume-more (node)
   "Increase the volume of a sink."
   (interactive (list (ewoc-locate pa-sinks-ewoc)))
-  )
+  (let* ((data (ewoc-data node))
+         (volume (car (reverse (plist-get data :volume))))
+         (num (plist-get data :num))
+         (line (line-number-at-pos))
+         value)
+    (when (string-match "\\([0-9]+\\)%" volume)
+      (setq value (string-to-int (match-string 1 volume)))
+      (setq value (+ value pulseaudio-sink-volume-step))
+      (shell-command (concat "pactl set-sink-volume " num " " 
+                             (int-to-string value) "%"))
+      (message "%s" (concat "pactl set-sink-volume " num " " 
+                            (int-to-string value) "%"))
+      (goto-line line)
+      )
+    )
+  (pa-sinks-refresh))
 
 ;;;###autoload
 (define-derived-mode pulseaudio-sinks-mode fundamental-mode "Pulseaudio Sinks"
@@ -187,7 +272,7 @@
                        (substitute-command-keys "\n\\{pulseaudio-sinks-mode-map}") 
                        "---"))
     (goto-char (point-max))
-    (put-text-property (point-min) (point) 'read-only t)
+    ;;(put-text-property (point-min) (point) 'read-only t)
     (let ((inhibit-read-only t))
       (put-text-property (point-min) (point) 'front-sticky t)
       (put-text-property (point-min) (point) 'rear-nonsticky t)))
@@ -195,7 +280,7 @@
 
 (defun pa-sinks-refresh ()
   "Refresh all sinks's status"
-  (erase-buffer)
+  ;;(erase-buffer)
   (let ((output (shell-command-to-string "pactl list sinks")))
     (setq pa-sinks-parser (start-pa-sinks-parser output))
     (dolist (line (split-string output "\n" t))
@@ -296,6 +381,11 @@
     (fsm-update pa-sinks-parser :sinks-start
                 (fsm-get-state-data pa-sinks-parser) nil)
     )
+  ;; delete all items
+  (let ((node (ewoc-nth pa-sinks-ewoc 0)))
+    (while node 
+      (ewoc-delete pa-sinks-ewoc node)
+      (setq node (ewoc-nth pa-sinks-ewoc 0))))
   (dolist (sink pa-sinks-list)
     (ewoc-enter-last pa-sinks-ewoc sink)))
 
@@ -312,7 +402,8 @@
   (let ((buffer (get-buffer-create 
                  (or pulseaudio-sinks-buffer-name "*PulseAudio Sinks*"))))
     (with-current-buffer buffer
-      (pulseaudio-sinks-mode)
+      (unless (equal major-mode 'pulseaudio-sinks-mode)
+        (pulseaudio-sinks-mode))
       (pa-sinks-refresh))
     (pop-to-buffer buffer)))
 
