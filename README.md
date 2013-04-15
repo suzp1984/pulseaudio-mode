@@ -12,7 +12,7 @@ add following line into your emacs's init file
 
 TODO:
   - add a control panel 
-  - add a volume control
+  * add a volume control
   - add a sinks/sources/sink-inputs/source-inputs manager mode.
   - add a special functional mode to record a sink-inputs.
   
