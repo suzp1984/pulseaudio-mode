@@ -396,6 +396,7 @@
                        (fsm-get-state-data pa-sinks-parser) nil)
            (fsm-send-sync pa-sinks-parser event))))
 
+;;;###autoload
 (defun list-pulseaudio-sinks ()
   "Display all pulseaudio sinks"
   (interactive)
