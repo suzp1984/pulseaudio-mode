@@ -52,7 +52,7 @@
     (define-key map (kbd "-") 'pulseaudio-sinks-volume-less)
     (define-key map (kbd "+") 'pulseaudio-sinks-volume-more)
     (define-key map (kbd "n") 'pulseaudio-sinks-next)
-    (define-key map (kbd "p") 'pulseaudio-sinks-pre)
+    (define-key map (kbd "p") 'pulseaudio-sinks-prev)
     map)
   "pulseaudio-sinks-mode keymap")
 
