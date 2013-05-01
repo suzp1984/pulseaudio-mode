@@ -28,7 +28,7 @@
 (require 'cl)
 
 (defgroup pulseaudio-sinks nil
-  "Pulseaudio sinks mangement"
+  "Pulseaudio sinks management"
   :tag "Pulseaudio sinks"
   :version "0.1"
   :group 'pulseaudio)
